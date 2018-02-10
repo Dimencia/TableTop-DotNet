@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -39,28 +40,30 @@ namespace TableTop
         public readonly float MaxZoom = 8;
         public readonly float MinZoom = 0.4f;
 
-        public float ChatBoxHeight { get; protected set; } // Default, will allow click-drag to resize it
+        public int ChatBoxHeight { get; protected set; } // Default, will allow click-drag to resize it
 
-        public readonly Image GrassTexture = Image.FromFile("forest_default.jpg");
-        public Bitmap GrassHDTexture { get; protected set; }
-        public Bitmap GrassHDResized { get; set; }
+        public readonly Bitmap GrassTexture = new Bitmap("forest_default.jpg");
+        public readonly Bitmap GrassHDTexture = new Bitmap("grass_HD.png");
+
         public readonly SizeF GrassDesiredDimensions = new SizeF(256, 256);
-        public readonly SizeF GrassHDDesiredDimensions = new SizeF(32, 32);
+        public readonly SizeF GrassHDDesiredDimensions;
         public PointF GrassScaleDefault; // We calculate this from DesiredDimensions so we have multiple ways to scale things
         public readonly WrapMode GrassWrapMode = WrapMode.TileFlipXY;
         public TextureBrush GrassTextureBrush { get; protected set; } // I'm sorry I like my other classes to be able to get data from here so you get all these protected sets to 
-                                                                      // keep them from actually changing any of the data without the proper validation/updates
+
         public readonly Font MenuFont = new Font("Arial", 14);
         public readonly SolidBrush MenuBackgroundBrush = new SolidBrush(SystemColors.Menu);
         public readonly SolidBrush MenuOptionBrush = new SolidBrush(SystemColors.MenuBar);
         public readonly SolidBrush MenuSelectedBrush = new SolidBrush(SystemColors.MenuHighlight);
+
+        private ConcurrentList<string> ChatMessages = new ConcurrentList<string>();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="FormMain"/> class.
         /// </summary>
         public FormMain()
         {
-            ChatBoxHeight = 200f;
+            ChatBoxHeight = 200;
 
             zoomMult = 1;
             zoomMod = 1;
@@ -78,8 +81,7 @@ namespace TableTop
             MouseUp += _MouseUp;
             MouseMove += _MouseMove;
             Shown += _Shown;
-
-
+            
             // Turns out, I don't really have to use a brush
             // I can use g.DrawImage with an attribute to tile
             // But the brush is already set up and scrolls well... 
@@ -92,7 +94,7 @@ namespace TableTop
             ScaleMatrix.Scale(GrassScaleDefault.X, GrassScaleDefault.Y);
             GrassTextureBrush.MultiplyTransform(ScaleMatrix, MatrixOrder.Prepend);
 
-            GrassHDTexture = new Bitmap("grass_default.jpg");
+            GrassHDDesiredDimensions = new SizeF(GrassHDTexture.Width/10, GrassHDTexture.Height/10);
 
             // Make a new thread that waits for g to not be null and then initializes the rest
             /*
@@ -115,6 +117,11 @@ namespace TableTop
             TimerMain.Start();
         }
 
+        private void log(string s)
+        {
+            ChatMessages.Add(s);
+        }
+
         /// <summary>
         /// Initializes anything relying on g, called as soon as we get a Graphics object
         /// </summary>
@@ -124,11 +131,6 @@ namespace TableTop
             g.InterpolationMode = InterpolationMode.HighQualityBicubic;
             g.SmoothingMode = SmoothingMode.HighQuality;
             g.CompositingQuality = CompositingQuality.HighQuality;
-            
-            // Let's start by scaling down the HD texture so it's not 2600 pixels wide
-            // Should speed up future scaling
-            GrassHDTexture = (Bitmap)GrassHDTexture.Resize(new Size((int)(GrassHDDesiredDimensions.Width), (int)(GrassHDDesiredDimensions.Height)));
-            GrassHDResized = (Bitmap)GrassHDTexture.Clone(); // Cloning it ensures that we aren't fucking with the HD tex
 
             // So we iterate each menu...
             float posx = 0;
@@ -151,18 +153,33 @@ namespace TableTop
             g.FillRectangle(GrassTextureBrush, new RectangleF(Offsets.X, Offsets.Y, gridMaxSize * cellSize * zoomMult, gridMaxSize * cellSize * zoomMult));
             // Must draw the opacity-altered image second
             // Opacity goes in as a percent, I'd like 100% at half of max zoom or so
-            int opacity = (int)(100 * ((zoomMult * 2) / MaxZoom));
+            int opacity = (int)(100 * ((zoomMult) / MaxZoom))-20; // Max 80%
+            if (opacity > 100)
+                opacity = 100;
+            if (opacity < 0)
+                opacity = 0;
+
+            using (TextureBrush HDBrush = GrassHDTexture.ToTransparentBrush(new SizeF(GrassHDDesiredDimensions.Width * zoomMult, GrassHDDesiredDimensions.Height * zoomMult), opacity))
+            {
+                // Right so we need this to be at least 1 cellSize bigger than Width and Height of the form
+                // Then we apply offset%cellSize, which should appear the same but prevent any big offsets from showing its edges
+                RectangleF destination = new RectangleF((-cellSize * zoomMult) + (Offsets.X % (cellSize*zoomMult)), 
+                    (-cellSize * zoomMult) + (Offsets.Y % (cellSize*zoomMult)), 
+                    Width + (cellSize * zoomMult * 2), 
+                    Height + (cellSize * zoomMult * 2));
+                g.FillRectangle(HDBrush, destination);
+            };
+                
+
+            /*
+
             if (opacity >= 40) // Arbitrary to prevent it from freaking out at low opacity levels... 
             {
-                Bitmap b = GrassHDResized;
-                Bitmap t = (Bitmap)GrassHDResized.Clone();
-                Bitmap w = GrassHDTexture;
-                Bitmap ut = (Bitmap)GrassHDTexture.Clone();
-                // And we need to make sure everyting's good with g
-
-                g.TileImageWithOpacity(GrassHDResized, new Size((int)(GrassHDDesiredDimensions.Width * zoomMult), (int)(GrassHDDesiredDimensions.Height * zoomMult)), opacity);
+                g.TileImageWithOpacity(GrassHDTexture, new Size((int)(GrassHDDesiredDimensions.Width * zoomMult), (int)(GrassHDDesiredDimensions.Height * zoomMult)), opacity);
             }
             // TODO: Fix the above, having trouble resizing the image... 
+
+            */
         }
 
         /// <summary>
@@ -216,7 +233,12 @@ namespace TableTop
         {
             // Draws a chat window at the bottom of the screen
             // Intended to be moveable if we bother doing that
-
+            using (SolidBrush chatBackground = new SolidBrush(System.Drawing.Color.White))
+            {
+                g.FillRectangle(chatBackground, new Rectangle(0, Height, Width, ChatBoxHeight));
+            };
+            // Iterate through our list of chat messages and write each of them onto the rectangle
+            // I guess I should really use an actual Control for this like RichText with a scrollbar... 
         }
 
     }
