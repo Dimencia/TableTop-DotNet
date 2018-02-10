@@ -117,6 +117,8 @@ namespace TableTop
                 Matrix ScaleMatrix = new Matrix();
                 ScaleMatrix.Scale(multModifier, multModifier);
                 GrassTextureBrush.MultiplyTransform(ScaleMatrix, MatrixOrder.Prepend);
+                // TODO: Part of the problem must be here because I'm using zoomMult not multModifier (which is sqrt of zoommult)
+                // But it also runs out of memory like immediately, idk what that's about
             }
 
             Refresh();

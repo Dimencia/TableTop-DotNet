@@ -48,6 +48,7 @@ namespace TableTop
         public readonly SizeF GrassDesiredDimensions = new SizeF(256, 256);
         public readonly SizeF GrassHDDesiredDimensions;
         public PointF GrassScaleDefault; // We calculate this from DesiredDimensions so we have multiple ways to scale things
+        public PointF GrassScaleHD;
         public readonly WrapMode GrassWrapMode = WrapMode.TileFlipXY;
         public TextureBrush GrassTextureBrush { get; protected set; } // I'm sorry I like my other classes to be able to get data from here so you get all these protected sets to 
 
@@ -94,7 +95,8 @@ namespace TableTop
             ScaleMatrix.Scale(GrassScaleDefault.X, GrassScaleDefault.Y);
             GrassTextureBrush.MultiplyTransform(ScaleMatrix, MatrixOrder.Prepend);
 
-            GrassHDDesiredDimensions = new SizeF(GrassHDTexture.Width/10, GrassHDTexture.Height/10);
+            GrassHDDesiredDimensions = new SizeF(GrassHDTexture.Width, GrassHDTexture.Height);
+            GrassScaleHD = new PointF(GrassHDDesiredDimensions.Width / GrassHDTexture.Width, GrassHDDesiredDimensions.Height / GrassHDTexture.Height);
 
             // Make a new thread that waits for g to not be null and then initializes the rest
             /*
@@ -153,7 +155,7 @@ namespace TableTop
             g.FillRectangle(GrassTextureBrush, new RectangleF(Offsets.X, Offsets.Y, gridMaxSize * cellSize * zoomMult, gridMaxSize * cellSize * zoomMult));
             // Must draw the opacity-altered image second
             // Opacity goes in as a percent, I'd like 100% at half of max zoom or so
-            int opacity = (int)(100 * ((zoomMult) / MaxZoom))-20; // Max 80%
+            int opacity = (int)(100 * ((zoomMult*2) / MaxZoom))-20; // Max 80%
             if (opacity > 100)
                 opacity = 100;
             if (opacity < 0)
@@ -163,8 +165,8 @@ namespace TableTop
             {
                 // Right so we need this to be at least 1 cellSize bigger than Width and Height of the form
                 // Then we apply offset%cellSize, which should appear the same but prevent any big offsets from showing its edges
-                RectangleF destination = new RectangleF((-cellSize * zoomMult) + (Offsets.X % (cellSize*zoomMult)), 
-                    (-cellSize * zoomMult) + (Offsets.Y % (cellSize*zoomMult)), 
+                RectangleF destination = new RectangleF((-cellSize * zoomMult) + (Offsets.X % (cellSize) * Math.Sign(Offsets.X)), 
+                    (-cellSize * zoomMult) + (Offsets.Y % (cellSize) * Math.Sign(Offsets.Y)), 
                     Width + (cellSize * zoomMult * 2), 
                     Height + (cellSize * zoomMult * 2));
                 g.FillRectangle(HDBrush, destination);

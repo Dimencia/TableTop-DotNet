@@ -133,11 +133,13 @@ namespace TableTop
         {
             // The idea is I do a using(TextureBrush HDGrass.ToTransparentBrush(...
             // See if that's any faster.  
-            img = img.Resize(size); 
             img.SetAlpha((int)(255*(TransparencyPercent/100f)));
-            return new TextureBrush(img, Core._FormMain.GrassWrapMode, new Rectangle(0,0,size.Width, size.Height));
+            Matrix ScaleMatrix = new Matrix();
+            ScaleMatrix.Scale(Core._FormMain.GrassScaleHD.X, Core._FormMain.GrassScaleHD.Y);
+            TextureBrush result = new TextureBrush(img, Core._FormMain.GrassWrapMode, new Rectangle(0,0,size.Width, size.Height));
+            result.MultiplyTransform(ScaleMatrix, MatrixOrder.Prepend);
+            return result;
         }
-
 
         private static void SetAlpha(this Bitmap processedBitmap, int Alpha)
         {
