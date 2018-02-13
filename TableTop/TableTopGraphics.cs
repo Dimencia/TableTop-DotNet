@@ -19,13 +19,14 @@ namespace TableTop
         protected override void OnPaint(PaintEventArgs e)
         {
             Graphics g = e.Graphics;
-            //g.Clear(Color.Black); // Not needed if we're just doing one layer... and even then, if we build each layer each time
+            //g.Clear(Color.White); // Not needed if we're just doing one layer... and even then, if we build each layer each time
             if(!InitializedGraphics)
             {
                 InitializeGraphics(g);
+                InitializedGraphics = true;
             }
             DrawBackground(g);
-            DrawGrid(g);
+            DrawGridOptimized(g); // TODO: This might be temp if it doesn't work right
             DrawTopMenu(g);
             DrawChatWindow(g);
         }
@@ -47,7 +48,7 @@ namespace TableTop
         {
             if (dragging)
             {
-                ModifyOffsets(e.Location.X - dragBeginX, e.Location.Y - dragBeginY);
+                ModifyOffsetsAndScale(e.Location.X - dragBeginX, e.Location.Y - dragBeginY);
                 dragBeginX = e.Location.X;
                 dragBeginY = e.Location.Y;
                 Refresh();
@@ -59,7 +60,7 @@ namespace TableTop
             if (dragging)
             {
                 dragging = false;
-                ModifyOffsets(e.Location.X - dragBeginX, e.Location.Y - dragBeginY);
+                ModifyOffsetsAndScale(e.Location.X - dragBeginX, e.Location.Y - dragBeginY);
                 Refresh();
             }
         }
@@ -109,27 +110,35 @@ namespace TableTop
             float translateFinalX = -(projx - mousex);
             float translateFinalY = -(projy - mousey);
 
-            ModifyOffsets(translateFinalX, translateFinalY, multModifier);
-
-            // And now we want to scale the Texture's size by the change in ZoomMult (ie multModifier) if it's not 1 or 0 cuz that'd be pointless
-            if (multModifier != 1 && multModifier != 0)
-            {
-                Matrix ScaleMatrix = new Matrix();
-                ScaleMatrix.Scale(multModifier, multModifier);
-                GrassTextureBrush.MultiplyTransform(ScaleMatrix, MatrixOrder.Prepend);
-                // TODO: Part of the problem must be here because I'm using zoomMult not multModifier (which is sqrt of zoommult)
-                // But it also runs out of memory like immediately, idk what that's about
-            }
+            ModifyOffsetsAndScale(translateFinalX, translateFinalY); // Note that this resets then modifiers and scales
 
             Refresh();
         }
 
-        public void ModifyOffsets(float XMod, float YMod, float multModifier = 1f)
+        public void ModifyOffsetsAndScale(float XMod, float YMod)
         {
+            Image i = GrassTextureBrush.Image;
             Offsets = new PointF(Offsets.X + XMod, Offsets.Y + YMod);
-            
+
             // And translate it the same amount we just changed x and y offset
-            GrassTextureBrush.TranslateTransform(XMod, YMod, MatrixOrder.Append);
+            // Except at very high or low values this causes problems, so 
+            // We translate it by each var modded by the width/height of one 'tile' of it
+            // Which... is really hard to get, let's hope our math has been right
+            // In which case it should be zoomMult*Width
+            // But that doesn't seem to help... 
+            // Turns out it's probably the translate matrix inside the texture that needs to be modded
+            // Or I guess better to reset it and apply offsets... 
+            // But then our scale transform would have to be reapplied which is expensive
+            // But, we actually already set the scale transform right after this
+            // We can use DesiredDimensions because this is basically the initial dimension of what we plug in
+            // And we can't use the mods, we have to use the actual offsets modded by this same value
+            // And goddammit, desireddimensions itself was a scaling operation... 
+            // Fuckit, let's remove it entirely the default dimensions of this are fine
+
+            // Well it doesn't always scale right after and idgaf anymore so
+            GrassTextureBrush.ResetTransform();
+            GrassTextureBrush.TranslateTransform(Offsets.X%(zoomMult*GrassTexture.Width), Offsets.Y%(zoomMult*GrassTexture.Height), MatrixOrder.Append);
+            GrassTextureBrush.Scale(zoomMult);
         }
     }
 

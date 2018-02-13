@@ -38,7 +38,7 @@ namespace TableTop
             // 
             // TimerMain
             // 
-            this.TimerMain.Interval = 50;
+            this.TimerMain.Interval = 25;
             // 
             // FormMain
             // 

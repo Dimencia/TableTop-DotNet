@@ -129,6 +129,13 @@ namespace TableTop
             return ToTransparentBrush(img, size.ToSize(), TransparencyPercent);
         }
 
+        public static void Scale(this TextureBrush t, float mult)
+        {
+            Matrix m = new Matrix();
+            m.Scale(mult, mult);
+            t.MultiplyTransform(m);
+        }
+
         public static TextureBrush ToTransparentBrush(this Bitmap img, Size size, int TransparencyPercent)
         {
             // The idea is I do a using(TextureBrush HDGrass.ToTransparentBrush(...

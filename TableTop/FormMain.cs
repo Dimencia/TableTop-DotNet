@@ -25,7 +25,7 @@ namespace TableTop
     {
 
         /// <summary>
-        /// Contains our X and Y offset.  <see cref="FormMain.ModifyOffsets"/> with a custom wrapper function for changing them that updates everything relevant, like the texturebrush
+        /// Contains our X and Y offset.  <see cref="FormMain.ModifyOffsetsAndScale"/> with a custom wrapper function for changing them that updates everything relevant, like the texturebrush
         /// </summary>
         public PointF Offsets { get; set; }
         // basically each square gets this offset X and Y added to its position, adjusts if the player pans the camera/map
@@ -37,19 +37,19 @@ namespace TableTop
         public int gridMaxSize { get; protected set; }
         public float cellSize { get; protected set; }
 
-        public readonly float MaxZoom = 8;
-        public readonly float MinZoom = 0.4f;
+        public readonly float MaxZoom = 80;
+        public readonly float MinZoom = 0.08f;
 
         public int ChatBoxHeight { get; protected set; } // Default, will allow click-drag to resize it
 
         public readonly Bitmap GrassTexture = new Bitmap("forest_default.jpg");
         public readonly Bitmap GrassHDTexture = new Bitmap("grass_HD.png");
 
-        public readonly SizeF GrassDesiredDimensions = new SizeF(256, 256);
+        public readonly SizeF GrassDesiredDimensions = new SizeF(256, 256); // NO LONGER USED... 
         public readonly SizeF GrassHDDesiredDimensions;
         public PointF GrassScaleDefault; // We calculate this from DesiredDimensions so we have multiple ways to scale things
         public PointF GrassScaleHD;
-        public readonly WrapMode GrassWrapMode = WrapMode.TileFlipXY;
+        public readonly WrapMode GrassWrapMode = WrapMode.Tile;
         public TextureBrush GrassTextureBrush { get; protected set; } // I'm sorry I like my other classes to be able to get data from here so you get all these protected sets to 
 
         public readonly Font MenuFont = new Font("Arial", 14);
@@ -89,11 +89,11 @@ namespace TableTop
             // So the trees will be with a brush, and the grass will paint after it with opacity
 
             // X * Width = TargetWidth, X = TargetWidth/Width
-            GrassScaleDefault = new PointF(GrassDesiredDimensions.Width / GrassTexture.Width, GrassDesiredDimensions.Height / GrassTexture.Height);
+            //GrassScaleDefault = new PointF(GrassDesiredDimensions.Width / GrassTexture.Width, GrassDesiredDimensions.Height / GrassTexture.Height);
             GrassTextureBrush = new TextureBrush(GrassTexture, GrassWrapMode);
-            Matrix ScaleMatrix = new Matrix();
-            ScaleMatrix.Scale(GrassScaleDefault.X, GrassScaleDefault.Y);
-            GrassTextureBrush.MultiplyTransform(ScaleMatrix, MatrixOrder.Prepend);
+            //Matrix ScaleMatrix = new Matrix();
+            //ScaleMatrix.Scale(GrassScaleDefault.X, GrassScaleDefault.Y);
+            //GrassTextureBrush.MultiplyTransform(ScaleMatrix, MatrixOrder.Prepend);
 
             GrassHDDesiredDimensions = new SizeF(GrassHDTexture.Width, GrassHDTexture.Height);
             GrassScaleHD = new PointF(GrassHDDesiredDimensions.Width / GrassHDTexture.Width, GrassHDDesiredDimensions.Height / GrassHDTexture.Height);
@@ -152,9 +152,13 @@ namespace TableTop
         private void DrawBackground(Graphics g)
         {
             // If we're going to use a texture, we need to fill the entire potential CellGrid Area and use offsets...
-            g.FillRectangle(GrassTextureBrush, new RectangleF(Offsets.X, Offsets.Y, gridMaxSize * cellSize * zoomMult, gridMaxSize * cellSize * zoomMult));
+            g.FillRectangle(GrassTextureBrush, new RectangleF(0,0,Width,Height));
             // Must draw the opacity-altered image second
             // Opacity goes in as a percent, I'd like 100% at half of max zoom or so
+
+            // You know what, this whole bit is stupid.  Causes out of memory, doesn't work, just ... no.
+            /*
+
             int opacity = (int)(100 * ((zoomMult*2) / MaxZoom))-20; // Max 80%
             if (opacity > 100)
                 opacity = 100;
@@ -171,6 +175,7 @@ namespace TableTop
                     Height + (cellSize * zoomMult * 2));
                 g.FillRectangle(HDBrush, destination);
             };
+            */
                 
 
             /*
@@ -186,6 +191,7 @@ namespace TableTop
 
         /// <summary>
         /// Draws the grid.
+        /// This is the old one and isn't used for anything now... 
         /// </summary>
         /// <param name="g">The g.</param>
         private void DrawGrid(Graphics g)
@@ -194,19 +200,52 @@ namespace TableTop
             // That is, if the X > 0 and < width of the form , or y > 0 and y < width of the form
 
             float workingcellSize = cellSize * zoomMult;
-            for (float x = 0; x < gridMaxSize; x++)
-            {
-                //if ((x - Offsets.X) > 0 && (x - Offsets.X) < this.Width)
+                for (float x = 0; x < gridMaxSize; x++)
                 {
-                    // Draw vertical line
-                    g.DrawLine(Pens.Black, Offsets.X + (x * workingcellSize), Offsets.Y, Offsets.X + (x * workingcellSize), Offsets.Y + ((gridMaxSize - 1) * workingcellSize));
+                    //if ((x - Offsets.X) > 0 && (x - Offsets.X) < this.Width)
+                    {
+                        // Draw vertical line
+                        g.DrawLine(Pens.Black, Offsets.X + (x * workingcellSize), Offsets.Y, Offsets.X + (x * workingcellSize), Offsets.Y + ((gridMaxSize - 1) * workingcellSize));
+                    }
                 }
-            }
-            for (float y = 0; y < gridMaxSize; y++)
-            { // Draw horizontal line
-                //if ((y - Offsets.Y) > 0 && (y - Offsets.Y) < this.Height)
+                for (float y = 0; y < gridMaxSize; y++)
+                { // Draw horizontal line
+                    //if ((y - Offsets.Y) > 0 && (y - Offsets.Y) < this.Height)
+                    {
+                        g.DrawLine(Pens.Black, Offsets.X, Offsets.Y + (y * workingcellSize), Offsets.X + ((gridMaxSize - 1) * workingcellSize), Offsets.Y + (y * workingcellSize));
+                    }
+                }
+        }
+
+
+        /// <summary>
+        /// The new drawgrid which uses modulus to infinitely draw it
+        /// </summary>
+        /// <param name="g">The g.</param>
+        private void DrawGridOptimized(Graphics g)
+        {
+            // I'll swap to this if it works...
+            // The idea is that for a given width and height, and a given cellsize
+            // If we iterate each variable and draw a line at, for example, X % cellsize == 0... we don't draw any unnnecessary lines
+            // And if we internally add offset to each iterable var, it will appear to move
+
+            // It's not bad... there's a weird display artifact on high zoom when panned to positive offsets though
+            // The first line on the left seems to render twice, or two pixels
+            float workingcellSize = cellSize * zoomMult;
+            if (workingcellSize > 4)
+            {
+                for (float tx = 0; tx < Width; tx++)
                 {
-                    g.DrawLine(Pens.Black, Offsets.X, Offsets.Y + (y * workingcellSize), Offsets.X + ((gridMaxSize - 1) * workingcellSize), Offsets.Y + (y * workingcellSize));
+                    float x = (tx + workingcellSize) - (Offsets.X % workingcellSize);
+                    // this makes sure x is positive without affecting the outcome of the if
+                    if (x % workingcellSize < 1)
+                        g.DrawLine(Pens.Black, tx, 0, tx, Height);
+                }
+                for (float ty = 0; ty < Height; ty++)
+                { // Draw horizontal line
+                    float y = (ty + workingcellSize) - (Offsets.Y % workingcellSize);
+                    if (Math.Abs(y % workingcellSize) < 1)
+                        g.DrawLine(Pens.Black, 0, ty, Width, ty);
                 }
             }
         }
