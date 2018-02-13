@@ -34,11 +34,17 @@ namespace TableTop
         {
             this.components = new System.ComponentModel.Container();
             this.TimerMain = new System.Windows.Forms.Timer(this.components);
+            this.TimerFPS = new System.Windows.Forms.Timer(this.components);
             this.SuspendLayout();
             // 
             // TimerMain
             // 
             this.TimerMain.Interval = 25;
+            // 
+            // TimerFPS
+            // 
+            this.TimerFPS.Interval = 1000;
+            this.TimerFPS.Tick += new System.EventHandler(this.TimerFPS_Tick);
             // 
             // FormMain
             // 
@@ -59,6 +65,7 @@ namespace TableTop
         #endregion
 
         private System.Windows.Forms.Timer TimerMain;
+        private Timer TimerFPS;
     }
 }
 

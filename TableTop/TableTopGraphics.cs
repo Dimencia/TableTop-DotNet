@@ -10,6 +10,10 @@ namespace TableTop
     partial class FormMain
     {
         private bool InitializedGraphics = false;
+        private int framerate = 0;
+        private int lastframerate = 0;
+        private int mousex = 0;
+        private int mousey = 0;
 
         protected override void OnPaintBackground(PaintEventArgs e)
         {
@@ -18,9 +22,10 @@ namespace TableTop
 
         protected override void OnPaint(PaintEventArgs e)
         {
+            framerate++;
             Graphics g = e.Graphics;
             //g.Clear(Color.White); // Not needed if we're just doing one layer... and even then, if we build each layer each time
-            if(!InitializedGraphics)
+            if (!InitializedGraphics)
             {
                 InitializeGraphics(g);
                 InitializedGraphics = true;
@@ -46,6 +51,8 @@ namespace TableTop
 
         private void _MouseMove(object sender, MouseEventArgs e)
         {
+            this.mousex = e.X;
+            this.mousey = e.Y;
             if (dragging)
             {
                 ModifyOffsetsAndScale(e.Location.X - dragBeginX, e.Location.Y - dragBeginY);
@@ -137,10 +144,25 @@ namespace TableTop
 
             // Well it doesn't always scale right after and idgaf anymore so
             GrassTextureBrush.ResetTransform();
-            GrassTextureBrush.TranslateTransform(Offsets.X%(zoomMult*GrassTexture.Width), Offsets.Y%(zoomMult*GrassTexture.Height), MatrixOrder.Append);
+            GrassTextureBrush.TranslateTransform(Offsets.X % (zoomMult * GrassTexture.Width), Offsets.Y % (zoomMult * GrassTexture.Height), MatrixOrder.Append);
             GrassTextureBrush.Scale(zoomMult);
+
+            int opacity = (int)(100 * ((zoomMult) / 4)); // IDK
+            if (opacity > 100)
+                opacity = 100;
+            if (opacity < 0)
+                opacity = 0;
+
+            // Set the zoom on the texture's mip
+            GrassHDTexture.SetZoomLevel(zoomMult*0.01f);
+
+            // We should use the real HD texture here
+            if (GrassHDTextureBrush != null)
+                GrassHDTextureBrush.Dispose();
+            GrassHDTextureBrush = GrassHDTexture.ToTransparentBrush(opacity, GrassWrapMode, Offsets, 0.01f * zoomMult);
+
         }
     }
 
-    
+
 }

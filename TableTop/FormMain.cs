@@ -43,14 +43,12 @@ namespace TableTop
         public int ChatBoxHeight { get; protected set; } // Default, will allow click-drag to resize it
 
         public readonly Bitmap GrassTexture = new Bitmap("forest_default.jpg");
-        public readonly Bitmap GrassHDTexture = new Bitmap("grass_HD.png");
+        public readonly MipMapBitmap GrassHDTexture = new MipMapBitmap("grass_HD3.jpg");
+        public readonly Bitmap GrassHDMipLQ; // The Low Quality mipmap of the HD texture
 
-        public readonly SizeF GrassDesiredDimensions = new SizeF(256, 256); // NO LONGER USED... 
-        public readonly SizeF GrassHDDesiredDimensions;
-        public PointF GrassScaleDefault; // We calculate this from DesiredDimensions so we have multiple ways to scale things
-        public PointF GrassScaleHD;
         public readonly WrapMode GrassWrapMode = WrapMode.Tile;
         public TextureBrush GrassTextureBrush { get; protected set; } // I'm sorry I like my other classes to be able to get data from here so you get all these protected sets to 
+        public TextureBrush GrassHDTextureBrush { get; protected set; }
 
         public readonly Font MenuFont = new Font("Arial", 14);
         public readonly SolidBrush MenuBackgroundBrush = new SolidBrush(SystemColors.Menu);
@@ -82,21 +80,25 @@ namespace TableTop
             MouseUp += _MouseUp;
             MouseMove += _MouseMove;
             Shown += _Shown;
-            
+
             // Turns out, I don't really have to use a brush
             // I can use g.DrawImage with an attribute to tile
             // But the brush is already set up and scrolls well... 
             // So the trees will be with a brush, and the grass will paint after it with opacity
+            
+            //GrassHDMipLQ = GrassHDTexture.Resize(GrassHDTexture.Width / 10, GrassHDTexture.Height / 10);
+            GrassHDTextureBrush = new TextureBrush(GrassTexture, GrassWrapMode); // This is easier than making it 0% opacity to start...
 
             // X * Width = TargetWidth, X = TargetWidth/Width
             //GrassScaleDefault = new PointF(GrassDesiredDimensions.Width / GrassTexture.Width, GrassDesiredDimensions.Height / GrassTexture.Height);
             GrassTextureBrush = new TextureBrush(GrassTexture, GrassWrapMode);
+            
+            
             //Matrix ScaleMatrix = new Matrix();
             //ScaleMatrix.Scale(GrassScaleDefault.X, GrassScaleDefault.Y);
             //GrassTextureBrush.MultiplyTransform(ScaleMatrix, MatrixOrder.Prepend);
-
-            GrassHDDesiredDimensions = new SizeF(GrassHDTexture.Width, GrassHDTexture.Height);
-            GrassScaleHD = new PointF(GrassHDDesiredDimensions.Width / GrassHDTexture.Width, GrassHDDesiredDimensions.Height / GrassHDTexture.Height);
+            
+            //GrassScaleHD = new PointF(GrassHDDesiredDimensions.Width / GrassHDTexture.Width, GrassHDDesiredDimensions.Height / GrassHDTexture.Height);
 
             // Make a new thread that waits for g to not be null and then initializes the rest
             /*
@@ -117,6 +119,7 @@ namespace TableTop
             InitializeComponent();
             TimerMain.Tick += _GameTimerTick;
             TimerMain.Start();
+            TimerFPS.Start();
         }
 
         private void log(string s)
@@ -156,37 +159,10 @@ namespace TableTop
             // Must draw the opacity-altered image second
             // Opacity goes in as a percent, I'd like 100% at half of max zoom or so
 
-            // You know what, this whole bit is stupid.  Causes out of memory, doesn't work, just ... no.
-            /*
-
-            int opacity = (int)(100 * ((zoomMult*2) / MaxZoom))-20; // Max 80%
-            if (opacity > 100)
-                opacity = 100;
-            if (opacity < 0)
-                opacity = 0;
-
-            using (TextureBrush HDBrush = GrassHDTexture.ToTransparentBrush(new SizeF(GrassHDDesiredDimensions.Width * zoomMult, GrassHDDesiredDimensions.Height * zoomMult), opacity))
-            {
-                // Right so we need this to be at least 1 cellSize bigger than Width and Height of the form
-                // Then we apply offset%cellSize, which should appear the same but prevent any big offsets from showing its edges
-                RectangleF destination = new RectangleF((-cellSize * zoomMult) + (Offsets.X % (cellSize) * Math.Sign(Offsets.X)), 
-                    (-cellSize * zoomMult) + (Offsets.Y % (cellSize) * Math.Sign(Offsets.Y)), 
-                    Width + (cellSize * zoomMult * 2), 
-                    Height + (cellSize * zoomMult * 2));
-                g.FillRectangle(HDBrush, destination);
-            };
-            */
-                
-
-            /*
-
-            if (opacity >= 40) // Arbitrary to prevent it from freaking out at low opacity levels... 
-            {
-                g.TileImageWithOpacity(GrassHDTexture, new Size((int)(GrassHDDesiredDimensions.Width * zoomMult), (int)(GrassHDDesiredDimensions.Height * zoomMult)), opacity);
-            }
-            // TODO: Fix the above, having trouble resizing the image... 
-
-            */
+            // You know what, this whole bit is stupid... but I want it
+            // It was all moved to only update when it needs it
+            // This is a fresh texture that's been multiply transformed and offset already
+            g.FillRectangle(GrassHDTextureBrush, new Rectangle(0,0,Width,Height));
         }
 
         /// <summary>
@@ -215,6 +191,8 @@ namespace TableTop
                         g.DrawLine(Pens.Black, Offsets.X, Offsets.Y + (y * workingcellSize), Offsets.X + ((gridMaxSize - 1) * workingcellSize), Offsets.Y + (y * workingcellSize));
                     }
                 }
+                // TODO: Move the entire background/grid/moveable area to its own Container that I can put into a form, so I can put like a chatbox around it easier
+                // I kinda like the idea of doing it manually though... 
         }
 
 
@@ -264,6 +242,14 @@ namespace TableTop
             g.FillRectangle(MenuBackgroundBrush, 0, 0, this.Width, 25);
             g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias;
 
+
+            // For now I'd like an FPS counter and an X,Y position counter... 
+            string positionString = (-Offsets.X / zoomMult + mousex/zoomMult) +  ", " + (-Offsets.Y / zoomMult + mousey / zoomMult);
+            SizeF posStringSize = g.MeasureString(positionString, MenuFont);
+            g.DrawString(positionString, MenuFont, System.Drawing.Brushes.Black, new PointF(Width - posStringSize.Width, 0));
+            string fpsString = "FPS: " + lastframerate;
+            SizeF drawStringSize = g.MeasureString(fpsString, MenuFont);
+            g.DrawString(fpsString, MenuFont, System.Drawing.Brushes.Black, new PointF(Width - posStringSize.Width - 10 - drawStringSize.Width, 0));
         }
 
         /// <summary>
@@ -282,6 +268,11 @@ namespace TableTop
             // I guess I should really use an actual Control for this like RichText with a scrollbar... 
         }
 
+        private void TimerFPS_Tick(object sender, EventArgs e)
+        {
+            lastframerate = framerate;
+            framerate = 0;
+        }
     }
 
 

@@ -39,32 +39,6 @@ namespace TableTop
             return result;
         }
 
-        /*
-        private static Image resizeImage(this Image imgToResize, SizeF newSize)
-        {
-            float xPercent = newSize.Width / imgToResize.Size.Width;
-            float yPercent = newSize.Height / imgToResize.Size.Height;
-
-            using (Graphics gr = Graphics.FromImage(imgToResize))
-            {
-                gr.ScaleTransform(xPercent, yPercent);
-                imgToResize = new Bitmap((int)(xPercent * imgToResize.Width), (int)(yPercent * imgToResize.Height), gr);
-            }
-            return imgToResize;
-        }
-        */
-        // Didn't work.
-
-        public static Bitmap Resize(this Bitmap img, Size newSize)
-        {
-            return new Bitmap(img, newSize);
-        }
-
-        public static Bitmap Resize(this Bitmap img, SizeF newSize)
-        {
-            return img.Resize(newSize.ToSize());
-        }
-
         public static void TileImageWithOpacity(this Graphics g, Image i, Size tileSize, int opacityPercent, Rectangle destinationRect = new Rectangle())
         {
             // So, new idea, or old idea that I didn't do right... 
@@ -95,7 +69,7 @@ namespace TableTop
                new float[] {0, 0, 0, opacityPercent/100f, 0},
                new float[] {0, 0, 0, 0, 1}};
                 ColorMatrix colorMatrix = new ColorMatrix(matrixItems);
-                
+
                 imageAtt.SetColorMatrix(
                    colorMatrix,
                    ColorMatrixFlag.Default,
@@ -110,23 +84,18 @@ namespace TableTop
             // Left this possible so I can be lazy and this means I need to tile across the entire thing
             // I have to tile these manually tho... dammit... 
             // I'm stupid.  I don't have to resize it, I just need to make my destRect the right size and it'll do it for me
-                for (int y = destinationRect.Y; y < destinationRect.Height; y += tileSize.Height-5)
-                {
-                    for (int x = destinationRect.X; x < destinationRect.Width; x += tileSize.Width-5)
-                    { // We've already handled everything with destinationRect, just draw to it with the x and y we're at
-                        // But we can check if it's on-screen cuz don't draw it if not
-                        if(x+tileSize.Width > 0 && x < Core._FormMain.Width && y+tileSize.Height > 0 && y < Core._FormMain.Height)
-                            g.DrawImage(i, new Rectangle(x, y, tileSize.Width, tileSize.Height), // Destination Width and Height.  destinationRect is the full rect to fill, destination is each tile
-                                0.0f, 0.0f, i.Width, i.Height, // Source Rect
-                                GraphicsUnit.Pixel, imageAtt);
-                    }
+            for (int y = destinationRect.Y; y < destinationRect.Height; y += tileSize.Height - 5)
+            {
+                for (int x = destinationRect.X; x < destinationRect.Width; x += tileSize.Width - 5)
+                { // We've already handled everything with destinationRect, just draw to it with the x and y we're at
+                  // But we can check if it's on-screen cuz don't draw it if not
+                    if (x + tileSize.Width > 0 && x < Core._FormMain.Width && y + tileSize.Height > 0 && y < Core._FormMain.Height)
+                        g.DrawImage(i, new Rectangle(x, y, tileSize.Width, tileSize.Height), // Destination Width and Height.  destinationRect is the full rect to fill, destination is each tile
+                            0.0f, 0.0f, i.Width, i.Height, // Source Rect
+                            GraphicsUnit.Pixel, imageAtt);
                 }
+            }
             imageAtt.Dispose();
-        }
-
-        public static TextureBrush ToTransparentBrush(this Bitmap img, SizeF size, int TransparencyPercent)
-        {
-            return ToTransparentBrush(img, size.ToSize(), TransparencyPercent);
         }
 
         public static void Scale(this TextureBrush t, float mult)
@@ -136,15 +105,29 @@ namespace TableTop
             t.MultiplyTransform(m);
         }
 
-        public static TextureBrush ToTransparentBrush(this Bitmap img, Size size, int TransparencyPercent)
+        public static Bitmap Resize(this Bitmap _currentBitmap, int newWidth, int newHeight)
         {
-            // The idea is I do a using(TextureBrush HDGrass.ToTransparentBrush(...
-            // See if that's any faster.  
-            img.SetAlpha((int)(255*(TransparencyPercent/100f)));
-            Matrix ScaleMatrix = new Matrix();
-            ScaleMatrix.Scale(Core._FormMain.GrassScaleHD.X, Core._FormMain.GrassScaleHD.Y);
-            TextureBrush result = new TextureBrush(img, Core._FormMain.GrassWrapMode, new Rectangle(0,0,size.Width, size.Height));
-            result.MultiplyTransform(ScaleMatrix, MatrixOrder.Prepend);
+            Bitmap animage = new Bitmap(newWidth, newHeight);
+            using (Graphics gr = Graphics.FromImage(animage))
+            {
+                //gr.SmoothingMode = SmoothingMode.HighSpeed;
+                //gr.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                //gr.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                //gr.CompositingQuality = CompositingQuality.HighQuality;
+                gr.DrawImage(_currentBitmap, new Rectangle(0, 0, newWidth, newHeight));
+            }
+            return animage;
+        }
+
+        public static TextureBrush ToTransparentBrush(this Bitmap img, int TransparencyPercent, WrapMode wrap = WrapMode.Tile, PointF offset = new PointF(), float scale = 1)
+        {
+            img.SetAlpha((int)(255 * (TransparencyPercent / 100f)));
+            TextureBrush result = new TextureBrush(img, wrap);
+            if (!offset.IsEmpty)
+            {
+                result.TranslateTransform(offset.X % (scale * img.Width), offset.Y % (scale * img.Height), MatrixOrder.Prepend);
+            }
+            result.Scale(scale);
             return result;
         }
 
@@ -172,30 +155,145 @@ namespace TableTop
                         currentLine[x] = (byte)oldBlue;
                         currentLine[x + 1] = (byte)oldGreen;
                         currentLine[x + 2] = (byte)oldRed;
-                        currentLine[x + 3] = (byte)(Alpha);
+                        currentLine[x + 3] = (byte)Alpha;
                     }
                 });
                 processedBitmap.UnlockBits(bitmapData);
-                
+
             }
         }
     }
 
     public class ConcurrentList<T>
-    {
+    { // Untested and unneeded but idk maybe
         private List<T> list;
         public int Count { get; protected set; }
 
-        public ConcurrentList() {
+        public ConcurrentList()
+        {
             list = new List<T>();
         }
 
         public void Add(T item)
         {
-            lock(Extensions.aLock)
-            list.Add(item);
+            lock (Extensions.aLock)
+                list.Add(item);
         }
 
-        
+        public void Remove(T item)
+        {
+            lock (Extensions.aLock)
+                list.Remove(item);
+        }
+    }
+
+
+    public class MipMapBitmap
+    {
+        // So this should initialize with a bitmap, generate mipmaps (3 or user defined)
+        // And then whenever they try to get the image at a particular size, we give them the appropriate one
+        // We can do sizes 1/4, 1/8, 1/16
+
+        public Bitmap Bitmap
+        {
+            get
+            {
+                if (HasMipMaps)
+                {
+                    if (ZoomLevel >= 1)
+                        return original;
+                    return MipMaps[currentIndex];
+                }
+                return original;
+            }
+        }
+        private Bitmap original;
+        private float ZoomLevel = 1;
+        public bool HasMipMaps { get; protected set; }
+        public List<Bitmap> MipMaps { get; protected set; }
+        private int StepDivisor = 2; // By default each step is 1/2 resolution of the last
+        private int currentIndex = 0; // We set this internally every time zoomlevel is altered because we don't need to do all that work in the Get
+        public int Width { get { return MipMaps[currentIndex].Width; } }
+        public int Height { get { return MipMaps[currentIndex].Height; } }
+
+        public MipMapBitmap(string s, float sizeMult = 1)
+        {
+            original = new Bitmap(s);
+            if (sizeMult != 1)
+                original = original.Resize((int)(original.Width * sizeMult), (int)(original.Height * sizeMult));
+            original.MakeTransparent(); // important if using much of anything
+            HasMipMaps = false;
+            GenerateMipMaps();
+        }
+
+        public void GenerateMipMaps()
+        {
+            // This will generate mipmaps at recursive 50% resolution of the previous one until any part of the mip is below 32x32
+            // I'll make one to let you pick all that later
+            int currentWidth = original.Width;
+            int currentHeight = original.Height;
+            MipMaps = new List<Bitmap>();
+            MipMaps.Add(original); // First the full resolution one.
+            do
+            {
+                currentWidth = currentWidth / StepDivisor;
+                currentHeight = currentHeight / StepDivisor;
+                MipMaps.Add(original.Resize(currentWidth, currentHeight));
+            } while (currentWidth > 32 && currentHeight > 32);
+            if (MipMaps.Count > 1)
+                HasMipMaps = true;
+        }
+
+        public Bitmap SetZoomLevel(float z)
+        {
+            // Sets the zoom and returns the appropriate bitmap
+            ZoomLevel = z;
+            /*
+            * Zoom level:          
+            1 - 0.5            
+            2 - 0.25               
+            3 - 0.125
+            4 - 0.0625
+
+
+            So divisor^n = ZoomLevel
+            log(divisor^n) = log(ZoomLevel)
+            n * log(divisor) = log(ZoomLevel)
+            n = log(ZoomLevel)/log(divisor)
+            */
+            if (!HasMipMaps)
+                return original;
+
+            currentIndex = (int)(Math.Log(ZoomLevel) / Math.Log(1f/StepDivisor));
+            if (currentIndex >= MipMaps.Count)
+                currentIndex = MipMaps.Count - 1;
+            // ... just in case I guess
+            if (currentIndex < 0)
+                currentIndex = 0;
+            return MipMaps[currentIndex];
+        }
+
+        public TextureBrush ToTransparentBrush(int opacity, WrapMode wrap, PointF offset, float sizeMult)
+        {
+            if(!HasMipMaps)
+                return original.ToTransparentBrush(opacity, wrap, offset, sizeMult);
+            // We already resized this but we didn't do it perfectly and this wants a sizemult
+            // sizemult we pass is ... currentindex's size vs originals size * sizeMult.  They scaled the same percent so width should work alone
+            sizeMult =  (original.Size.Width * sizeMult) / MipMaps[currentIndex].Size.Width;
+
+            return MipMaps[currentIndex].ToTransparentBrush(opacity, wrap, offset, sizeMult); // We already resized it... 
+        }
+
+        public static explicit operator Bitmap(MipMapBitmap i) // Allows someone to use MipMapBitmap where a Bitmap would be required
+        {
+            if (i.HasMipMaps)
+            {
+                if (i.ZoomLevel >= 1)
+                    return i.original;
+                return i.MipMaps[i.currentIndex];
+            }
+            return i.original;
+        }
+
     }
 }
