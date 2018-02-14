@@ -35,6 +35,9 @@ namespace TableTop
         private StatusStrip statusStrip1;
         private ToolStripStatusLabel LabelStatusLeft;
         private ToolStripStatusLabel LabelStatusRight;
+        private ToolStripDropDownButton toolStripDropDownButton1;
+        private ToolStripMenuItem changeNameColorToolStripMenuItem;
+        private ToolStripMenuItem changeFontColorToolStripMenuItem;
         private bool AutoScrollOnChat = true; // We can change this later with a button if we want
 
         public FormMain()
@@ -174,30 +177,9 @@ namespace TableTop
             });
         }
 
-        private void changeNameColorToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            _ColorDialog.Color = NameColor;
-            if (_ColorDialog.ShowDialog(this) == DialogResult.OK)
-            {
-                NameColor = _ColorDialog.Color;
-                Properties.Settings.Default.NameColor = ColorTranslator.ToHtml(NameColor);
-                Properties.Settings.Default.Save();
-            }
-        }
-
-        private void changeFontColorToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            _ColorDialog.Color = FontColor;
-            if (_ColorDialog.ShowDialog(this) == DialogResult.OK)
-            {
-                FontColor = _ColorDialog.Color;
-                Properties.Settings.Default.FontColor = ColorTranslator.ToHtml(FontColor);
-                Properties.Settings.Default.Save();
-            }
-        }
-
         private void InitializeComponent()
         {
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(FormMain));
             this.MenuStripMain = new System.Windows.Forms.MenuStrip();
             this.fileToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.changeNameToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -207,6 +189,9 @@ namespace TableTop
             this.statusStrip1 = new System.Windows.Forms.StatusStrip();
             this.LabelStatusLeft = new System.Windows.Forms.ToolStripStatusLabel();
             this.LabelStatusRight = new System.Windows.Forms.ToolStripStatusLabel();
+            this.toolStripDropDownButton1 = new System.Windows.Forms.ToolStripDropDownButton();
+            this.changeFontColorToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.changeNameColorToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.MenuStripMain.SuspendLayout();
             this.statusStrip1.SuspendLayout();
             this.SuspendLayout();
@@ -263,7 +248,8 @@ namespace TableTop
             // 
             this.statusStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.LabelStatusLeft,
-            this.LabelStatusRight});
+            this.LabelStatusRight,
+            this.toolStripDropDownButton1});
             this.statusStrip1.Location = new System.Drawing.Point(5, 600);
             this.statusStrip1.Name = "statusStrip1";
             this.statusStrip1.Size = new System.Drawing.Size(1070, 22);
@@ -278,10 +264,36 @@ namespace TableTop
             // LabelStatusRight
             // 
             this.LabelStatusRight.Name = "LabelStatusRight";
-            this.LabelStatusRight.Size = new System.Drawing.Size(1024, 17);
+            this.LabelStatusRight.Size = new System.Drawing.Size(995, 17);
             this.LabelStatusRight.Spring = true;
             this.LabelStatusRight.Text = "LabelStatusRight";
             this.LabelStatusRight.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            // 
+            // toolStripDropDownButton1
+            // 
+            this.toolStripDropDownButton1.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
+            this.toolStripDropDownButton1.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.changeNameColorToolStripMenuItem,
+            this.changeFontColorToolStripMenuItem});
+            this.toolStripDropDownButton1.Image = ((System.Drawing.Image)(resources.GetObject("toolStripDropDownButton1.Image")));
+            this.toolStripDropDownButton1.ImageTransparentColor = System.Drawing.Color.Magenta;
+            this.toolStripDropDownButton1.Name = "toolStripDropDownButton1";
+            this.toolStripDropDownButton1.Size = new System.Drawing.Size(29, 20);
+            this.toolStripDropDownButton1.Text = "toolStripDropDownButton1";
+            // 
+            // changeFontColorToolStripMenuItem
+            // 
+            this.changeFontColorToolStripMenuItem.Name = "changeFontColorToolStripMenuItem";
+            this.changeFontColorToolStripMenuItem.Size = new System.Drawing.Size(182, 22);
+            this.changeFontColorToolStripMenuItem.Text = "Change Font Color";
+            this.changeFontColorToolStripMenuItem.Click += new System.EventHandler(this.changeFontColorToolStripMenuItem_Click_1);
+            // 
+            // changeNameColorToolStripMenuItem
+            // 
+            this.changeNameColorToolStripMenuItem.Name = "changeNameColorToolStripMenuItem";
+            this.changeNameColorToolStripMenuItem.Size = new System.Drawing.Size(182, 22);
+            this.changeNameColorToolStripMenuItem.Text = "Change Name Color";
+            this.changeNameColorToolStripMenuItem.Click += new System.EventHandler(this.changeNameColorToolStripMenuItem_Click_1);
             // 
             // FormMain
             // 
@@ -312,6 +324,28 @@ namespace TableTop
             {
                 Username = result;
                 Properties.Settings.Default.Username = Username;
+                Properties.Settings.Default.Save();
+            }
+        }
+
+        private void changeFontColorToolStripMenuItem_Click_1(object sender, EventArgs e)
+        {
+            _ColorDialog.Color = FontColor;
+            if (_ColorDialog.ShowDialog(this) == DialogResult.OK)
+            {
+                FontColor = _ColorDialog.Color;
+                Properties.Settings.Default.FontColor = ColorTranslator.ToHtml(FontColor);
+                Properties.Settings.Default.Save();
+            }
+        }
+
+        private void changeNameColorToolStripMenuItem_Click_1(object sender, EventArgs e)
+        {
+            _ColorDialog.Color = NameColor;
+            if (_ColorDialog.ShowDialog(this) == DialogResult.OK)
+            {
+                NameColor = _ColorDialog.Color;
+                Properties.Settings.Default.NameColor = ColorTranslator.ToHtml(NameColor);
                 Properties.Settings.Default.Save();
             }
         }

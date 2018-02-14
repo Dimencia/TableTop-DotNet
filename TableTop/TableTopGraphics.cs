@@ -225,7 +225,7 @@ namespace TableTop
                 opacity = 0;
 
             // Set the zoom on the texture's mip, pretending we're less zoomed than we are so we get lower res mips... 
-            GrassHDTexture.SetZoomLevel((zoomMult*.9f)*0.01f);
+            GrassHDTexture.SetZoomLevel((zoomMult*.8f)*0.01f);
 
             // We should use the real HD texture here
             if (GrassHDTextureBrush != null)
