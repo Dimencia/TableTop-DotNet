@@ -8,6 +8,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows.Forms;
 
 namespace TableTop
 {
@@ -49,7 +50,7 @@ namespace TableTop
             // Note the entire reason I have to do all this shit is because if I re-make a TexturedBrush every tick, shit gets slow
             // And there's no way to change the alpha on one without remaking it
             // Of course, I'm re-making the bitmap in resize... 
-            float maxWidth = Core._FormMain.gridMaxSize * Core._FormMain.cellSize * Core._FormMain.zoomMult;
+            float maxWidth = Core._ZoomGrid.gridMaxSize * Core._ZoomGrid.cellSize * Core._ZoomGrid.zoomMult;
             float maxHeight = maxWidth; // We edit these if they specified their own destination
             // These are the highest values of X and Y we need to draw to, assuming they're within the destination
 
@@ -78,7 +79,7 @@ namespace TableTop
 
             if (destinationRect.IsEmpty)
             {
-                destinationRect = new Rectangle((int)Core._FormMain.Offsets.X, (int)Core._FormMain.Offsets.Y, (int)maxWidth, (int)maxHeight);
+                destinationRect = new Rectangle((int)Core._ZoomGrid.Offsets.X, (int)Core._ZoomGrid.Offsets.Y, (int)maxWidth, (int)maxHeight);
             }
 
             // Left this possible so I can be lazy and this means I need to tile across the entire thing
@@ -89,13 +90,40 @@ namespace TableTop
                 for (int x = destinationRect.X; x < destinationRect.Width; x += tileSize.Width - 5)
                 { // We've already handled everything with destinationRect, just draw to it with the x and y we're at
                   // But we can check if it's on-screen cuz don't draw it if not
-                    if (x + tileSize.Width > 0 && x < Core._FormMain.Width && y + tileSize.Height > 0 && y < Core._FormMain.Height)
+                    if (x + tileSize.Width > 0 && x < Core._ZoomGrid.Width && y + tileSize.Height > 0 && y < Core._ZoomGrid.Height)
                         g.DrawImage(i, new Rectangle(x, y, tileSize.Width, tileSize.Height), // Destination Width and Height.  destinationRect is the full rect to fill, destination is each tile
                             0.0f, 0.0f, i.Width, i.Height, // Source Rect
                             GraphicsUnit.Pixel, imageAtt);
                 }
             }
             imageAtt.Dispose();
+        }
+
+        public static bool IsImage(this Stream stream)
+        {
+            stream.Seek(0, SeekOrigin.Begin);
+
+            List<string> jpg = new List<string> { "FF", "D8" };
+            List<string> bmp = new List<string> { "42", "4D" };
+            List<string> gif = new List<string> { "47", "49", "46" };
+            List<string> png = new List<string> { "89", "50", "4E", "47", "0D", "0A", "1A", "0A" };
+            List<List<string>> imgTypes = new List<List<string>> { jpg, bmp, gif, png };
+
+            List<string> bytesIterated = new List<string>();
+
+            for (int i = 0; i < 8; i++)
+            {
+                string bit = stream.ReadByte().ToString("X2");
+                bytesIterated.Add(bit);
+
+                bool isImage = imgTypes.Any(img => !img.Except(bytesIterated).Any());
+                if (isImage)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         public static void Scale(this TextureBrush t, float mult)
@@ -117,6 +145,27 @@ namespace TableTop
                 gr.DrawImage(_currentBitmap, new Rectangle(0, 0, newWidth, newHeight));
             }
             return animage;
+        }
+
+        public static void AppendText(this RichTextBox box, string text, Color color, Font font)
+        {
+            box.SelectionStart = box.TextLength;
+            box.SelectionLength = 0;
+
+            box.SelectionColor = color;
+            box.SelectionFont = font;
+            box.AppendText(text);
+            box.SelectionColor = box.ForeColor;
+        }
+
+        public static void AppendText(this RichTextBox box, string text, Color color)
+        {
+            box.SelectionStart = box.TextLength;
+            box.SelectionLength = 0;
+
+            box.SelectionColor = color;
+            box.AppendText(text);
+            box.SelectionColor = box.ForeColor;
         }
 
         public static TextureBrush ToTransparentBrush(this Bitmap img, int TransparencyPercent, WrapMode wrap = WrapMode.Tile, PointF offset = new PointF(), float scale = 1)

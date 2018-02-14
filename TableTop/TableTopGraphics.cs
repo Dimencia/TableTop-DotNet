@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
@@ -6,14 +7,16 @@ using System.Windows.Forms;
 
 namespace TableTop
 {
-    // This is to separate out our overrides and events, so that FormMain.cs contains just useable functions
-    partial class FormMain
+    // This is to separate out our overrides and events, so that ZoomableGrid.cs contains just useable functions
+    partial class ZoomableGrid
     {
         private bool InitializedGraphics = false;
         private int framerate = 0;
         private int lastframerate = 0;
-        private int mousex = 0;
-        private int mousey = 0;
+        public int mousex = 0;
+        public int mousey = 0;
+        public PointF PositionInternal { get; protected set; }
+        private Token interactingToken = null;
 
         protected override void OnPaintBackground(PaintEventArgs e)
         {
@@ -22,18 +25,27 @@ namespace TableTop
 
         protected override void OnPaint(PaintEventArgs e)
         {
-            framerate++;
             Graphics g = e.Graphics;
-            //g.Clear(Color.White); // Not needed if we're just doing one layer... and even then, if we build each layer each time
+            g.Clear(Color.White); // Not needed if we're just doing one layer... and even then, if we build each layer each time
             if (!InitializedGraphics)
             {
                 InitializeGraphics(g);
                 InitializedGraphics = true;
             }
             DrawBackground(g);
-            DrawGridOptimized(g); // TODO: This might be temp if it doesn't work right
-            DrawTopMenu(g);
-            DrawChatWindow(g);
+            DrawGridOptimized(g); 
+            //DrawTopMenu(g);
+            //DrawChatWindow(g);
+            // These aren't on us anymore
+            // But, Tokens have to be set visible false so I can use floats... 
+            // And the idea is I try to draw them here with their float values
+            // But I want to iterate it backwards because I'd like the draw order to reflect the precedence for mouse events
+            // IE when two are ontop and you click them, the one in front gets the mouse
+            for(int i = Tokens.Count-1; i >= 0; i--)
+            {
+                Token t = Tokens[i];
+                g.DrawImage(t.Image, new RectangleF(t.Location, t.Size));
+            }
         }
 
         private void _GameTimerTick(object sender, EventArgs e)
@@ -43,6 +55,26 @@ namespace TableTop
 
         private void _MouseDown(object sender, MouseEventArgs e)
         {
+            if(interactingToken != null)
+            {
+                interactingToken.SimulateMouseDown(e);
+                Refresh();
+                return;
+            }
+            foreach(Token t in Tokens)
+            {
+                if(new RectangleF(t.Location, t.Size).Contains(e.Location))
+                {
+                    t.SimulateMouseDown(e);
+                    interactingToken = t; // Pass all mouse events to this token til we get a mouseUP
+                    // Also bring this token to front
+                    Tokens.Remove(t);
+                    Tokens.Insert(0, t);
+                    Refresh();
+                    return;
+                }
+            }
+
             dragging = true;
             dragBeginX = e.Location.X;
             dragBeginY = e.Location.Y;
@@ -53,6 +85,7 @@ namespace TableTop
         {
             this.mousex = e.X;
             this.mousey = e.Y;
+            PositionInternal = new PointF((-Offsets.X / zoomMult + mousex / zoomMult), (-Offsets.Y / zoomMult + mousey / zoomMult));
             if (dragging)
             {
                 ModifyOffsetsAndScale(e.Location.X - dragBeginX, e.Location.Y - dragBeginY);
@@ -60,10 +93,37 @@ namespace TableTop
                 dragBeginY = e.Location.Y;
                 Refresh();
             }
+            else
+            {
+                if (interactingToken != null)
+                {
+                    interactingToken.SimulateMouseMove(e);
+                    Refresh();
+                    return;
+                }
+                foreach (Token t in Tokens)
+                {
+                    if (new RectangleF(t.Location, t.Size).Contains(e.Location))
+                    {
+                        t.SimulateMouseMove(e);
+                        Refresh();
+                        return;
+                    }
+                }
+            }
         }
 
         private void _MouseUp(object sender, MouseEventArgs e)
         {
+            if (interactingToken != null)
+            {
+                interactingToken.SimulateMouseUp(e);
+                interactingToken.GridPosition = ConvertWorldToLocal(interactingToken.Location);
+                Refresh();
+                interactingToken = null;
+                return;
+            }
+            // No need to test controls for this otherwise, they'd just get in the way of tring to scroll it
             if (dragging)
             {
                 dragging = false;
@@ -104,7 +164,7 @@ namespace TableTop
 
             // I think I need an x^2 pattern
             // So we add the sign of delta, /10, to zoomMult and square zoomMult before we use it
-            zoomMod += (zoomDirection * 0.1f);
+            zoomMod += (zoomDirection * 0.2f);
             zoomMult = zoomMod * zoomMod;
 
             // Alright so.... 
@@ -120,6 +180,17 @@ namespace TableTop
             ModifyOffsetsAndScale(translateFinalX, translateFinalY); // Note that this resets then modifiers and scales
 
             Refresh();
+        }
+
+        public PointF ConvertLocalToWorld(PointF localCoordinates)
+        {
+            // Just convenience functions because I'm tired of working this out
+            return new PointF((Offsets.X  + localCoordinates.X * zoomMult), (Offsets.Y  + localCoordinates.Y * zoomMult));
+        }
+
+        public PointF ConvertWorldToLocal(PointF parentCoordinates)
+        {
+            return new PointF((-Offsets.X / zoomMult + parentCoordinates.X / zoomMult), (-Offsets.Y / zoomMult + parentCoordinates.Y / zoomMult));
         }
 
         public void ModifyOffsetsAndScale(float XMod, float YMod)
@@ -153,14 +224,25 @@ namespace TableTop
             if (opacity < 0)
                 opacity = 0;
 
-            // Set the zoom on the texture's mip
-            GrassHDTexture.SetZoomLevel(zoomMult*0.01f);
+            // Set the zoom on the texture's mip, pretending we're less zoomed than we are so we get lower res mips... 
+            GrassHDTexture.SetZoomLevel((zoomMult*.9f)*0.01f);
 
             // We should use the real HD texture here
             if (GrassHDTextureBrush != null)
                 GrassHDTextureBrush.Dispose();
             GrassHDTextureBrush = GrassHDTexture.ToTransparentBrush(opacity, GrassWrapMode, Offsets, 0.01f * zoomMult);
 
+            // And iterate all Controls, setting them at their appropriate new locations.  The GridLocation doesn't change
+            foreach(Token t in Tokens)
+            {
+                SuspendLayout();
+                t.Size = new SizeF((cellSize * zoomMult), (cellSize * zoomMult));
+                t.Location = ConvertLocalToWorld(t.GridPosition); // This function will use the new values to put it in the right spot
+                // But unfortunately it's an int Point... 
+                // So we get the decimal values of GridPosition, ie GridPosition.X%1, and translate the image that amount
+                ResumeLayout();
+            }
+            ZoomChanged.Invoke(this, new EventArgs());
         }
     }
 

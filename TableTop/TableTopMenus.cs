@@ -12,7 +12,7 @@ namespace TableTop
     /// It will draw all menus in the enum each paint
     /// This class also will contain our SelectedMenu, because we can only ever have one of those
     /// When a SubMenu is selected, all parent menus will also be considered selected and colored appropriately</summary>
-    public class TableTopMenus
+    class TableTopMenus
     {
 
         /// <summary>
